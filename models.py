@@ -18,7 +18,8 @@ class LSTM(nn.Module):
 
         self.embedding = LoadEmbedding(V,D)
         if args.pretrain:
-            pass
+            self.embedding.load_pretrained_embedding(args.pretrain_file,args.vocab,requires_grad=args.tuned
+                                                     ,embed_pickle=args.embed_save_pickle,binary=False)
         else:
             self.embedding.weight = nn.Parameter(torch.randn((V, D)), requires_grad=args.tuned)
         self.lstm = nn.LSTM(D,H,N,batch_first=True)

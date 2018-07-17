@@ -9,7 +9,7 @@ class Trainer:
     def __init__(self,args):
         self.args = args
 
-    def postag_lstm_train(self,train_set):
+    def postag_lstm_train(self,train_set,test_set):
         batch_block = len(train_set) // self.args.batchsize
         if len(train_set) % self.args.batchsize:
             batch_block += 1
@@ -34,11 +34,43 @@ class Trainer:
                     x, y, len_x = BatchGenerator.create(train_set[left:]
                                                         ,self.args.feat_padidx, self.args.label_padidx,cuda=self.args.cuda)
                 out = model.forward(x,len_x)
-                loss = F.cross_entropy(out.view(-1,out.data.size()[2]),y.view(-1),ignore_index=self.args.label_padidx)
+                loss = F.cross_entropy(out.view(-1,out.data.size()[2]),y.view(-1),ignore_index=self.args.label_padidx)/self.args.batchsize
                 loss.backward()
                 optimizer.step()
                 loss_sum += loss.data[0]
-            print("loss:",loss_sum)
+            acc = self.postag_lstm_test(model, test_set)
+            print("loss: {} and acc: {} ".format(loss_sum,acc))
+
+    def postag_lstm_test(self,model,test_set):
+        batch_block = len(test_set)//self.args.batchsize
+        if len(test_set) % self.args.batchsize:
+            batch_block += 1
+        cor = total = 0
+        for block in range(batch_block):
+            left = block * self.args.batchsize
+            right = left + self.args.batchsize
+            if right <= len(test_set):
+                x,y,len_x = BatchGenerator.create(test_set[left:right]
+                                                  ,self.args.feat_padidx,self.args.label_padidx,cuda = self.args.cuda)
+            else:
+                x,y,len_x = BatchGenerator.create(test_set[left:]
+                                                  ,self.args.feat_padidx,self.args.label_padidx,cuda=self.args.cuda)
+            out = model(x,len_x)
+            out = torch.max(out,2)[1]
+            c,t = self.postag_eval(out,y,len_x)
+            cor += c
+            total+= t
+        return cor/total
+
+    def postag_eval(self,out,gold,sen_len):
+        cor = total = 0
+        for i in range(out.size()[0]):
+            for j in range(out.size()[1]):
+                if j < sen_len[i]:
+                    if out.data[i][j] == gold.data[i][j]:
+                        cor += 1
+                    total += 1
+        return cor,total
 
 
 class BatchGenerator:
