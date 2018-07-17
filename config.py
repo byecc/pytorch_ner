@@ -14,7 +14,7 @@ def parse_args():
     parser.add_argument("--num_layers", default="1",type=int)
     parser.add_argument("--seed", default=233, type=int)
     parser.add_argument("--label_num", default=1, type=int)
-    parser.add_argument("--embed_dim", default=100, type=int)
+    parser.add_argument("--embed_dim", default=300, type=int)
     parser.add_argument("--dropout", default=0.5, type=float)
     parser.add_argument("--pretrain_file", default="../classifier/data/glove.840B.300d.txt")
     parser.add_argument("--embed_pickle", default="data/embed.pkl")

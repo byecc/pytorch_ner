@@ -24,5 +24,6 @@ if __name__ == "__main__":
     trainer = Trainer(args)
     print('——————————start——————————')
     print(args)
+    args.vocab = vocab.word2id
     trainer.postag_lstm_train(train_data,test_data)
     print('---finish---')
