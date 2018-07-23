@@ -14,8 +14,8 @@ class LoadEmbedding(nn.Embedding):
         super(LoadEmbedding, self).__init__(num_embeddings, embedding_dim)
         self.embedding_dict = {}
 
-    def  load_pretrained_embedding(self, file, vocab_dict, embed_pickle=None, binary=False,
-                                  requires_grad = False,encoding='utf8', datatype=float32):
+    def load_pretrained_embedding(self, file, vocab_dict, embed_pickle=None, binary=False,
+                                  requires_grad=False, encoding='utf8', datatype=float32):
         """
         :param lr:
         :param requires_grad: if fine tune
@@ -35,7 +35,7 @@ class LoadEmbedding(nn.Embedding):
             nparray[nparray.shape[0] - 1] = vec_sum / (nparray.shape[
                                                            0] - 1)  # -unknown- vector initialize by making average, -unknown- index is the last one
             print("vocabulary complete...")
-            self.weight = nn.Parameter(torch.FloatTensor(nparray),requires_grad=requires_grad)
+            self.weight = nn.Parameter(torch.FloatTensor(nparray), requires_grad=requires_grad)
         else:
             with open(file, 'rb') as fin:
                 header = str(fin.readline(), encoding).split()
@@ -98,6 +98,5 @@ class LoadEmbedding(nn.Embedding):
             nparray[nparray.shape[0] - 1] = vec_sum / (nparray.shape[
                                                            0] - 1)  # -unknown- vector initialize by making average, -unknown- index is the last one
             pickle.dump(nparray, open(embed_pickle, 'wb'))
-            self.weight = nn.Parameter(torch.FloatTensor(nparray),requires_grad=requires_grad)
+            self.weight = nn.Parameter(torch.FloatTensor(nparray), requires_grad=requires_grad)
         return torch.FloatTensor(nparray)
-

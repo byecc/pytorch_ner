@@ -1,9 +1,8 @@
-import torch
 import torch.optim as optim
 import torch.autograd.variable as Var
 import torch.nn.functional as F
 import time
-from models import *
+from pos.models import *
 
 class Trainer:
     def __init__(self,args):
@@ -37,7 +36,7 @@ class Trainer:
                 loss = F.cross_entropy(out.view(-1,out.data.size()[2]),y.view(-1),ignore_index=self.args.label_padidx)/self.args.batchsize
                 loss.backward()
                 optimizer.step()
-                loss_sum += loss.data[0]
+                loss_sum += loss.item()
             acc = self.postag_lstm_test(model, test_set)
             print("loss: {} and acc: {} ".format(loss_sum,acc))
 

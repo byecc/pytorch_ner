@@ -1,17 +1,18 @@
 import argparse
 
+
 def parse_args():
     parser = argparse.ArgumentParser(description="Joint Chinese Word Segmentation and POS Tagging")
-    parser.add_argument("--train_path",default="data/train.txt")
-    parser.add_argument("--dev_path",default="data/dev.txt")
-    parser.add_argument("--test_path",default="data/test.txt")
+    parser.add_argument("--train_path", default="../data/train.txt")
+    parser.add_argument("--dev_path", default="../data/dev.txt")
+    parser.add_argument("--test_path", default="../data/test.txt")
     parser.add_argument("--batchsize", default=36, type=int)
     parser.add_argument("--epoch", default=10, type=int)
     parser.add_argument("--lr", default=0.001, type=float)
     parser.add_argument("--wd", default=1e-4, type=float)
     parser.add_argument("--optim", default="adam")
-    parser.add_argument("--hidden_dim", default="150",type=int)
-    parser.add_argument("--num_layers", default="1",type=int)
+    parser.add_argument("--hidden_dim", default="150", type=int)
+    parser.add_argument("--num_layers", default="1", type=int)
     parser.add_argument("--seed", default=233, type=int)
     parser.add_argument("--label_num", default=1, type=int)
     parser.add_argument("--embed_dim", default=300, type=int)
@@ -27,8 +28,8 @@ def parse_args():
     tuned_parser = parser.add_mutually_exclusive_group(required=False)
     tuned_parser.add_argument('--tuned', dest='tuned', action='store_true')
     tuned_parser.add_argument('--no-tuned', dest='tuned', action='store_false')
-    parser.set_defaults(tuned = True)
-    parser.set_defaults(pretrain = False)
-    parser.set_defaults(cuda = False)
+    parser.set_defaults(tuned=True)
+    parser.set_defaults(pretrain=False)
+    parser.set_defaults(cuda=False)
     args = parser.parse_args()
     return args
