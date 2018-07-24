@@ -40,6 +40,7 @@ class Data:
         self.train_file = None
         self.dev_file = None
         self.test_file = None
+        self.pretrain_file = None
         self.word_embed_path = None
         self.model_save_dir = None
         self.dataset = None
@@ -48,8 +49,10 @@ class Data:
         self.use_char = False
         self.char_feature_extractor = "LSTM"
         self.use_crf = False
+        self.use_cuda = False
 
         # hyperparameters
+        self.pretrain = True
         self.word_embed_dim = None
         self.char_embed_dim = None
         self.word_seq_feature = None
@@ -59,8 +62,13 @@ class Data:
         self.char_hidden_dim = None
         self.bilstm = None
         self.lstm_layer = None
+        self.batch_size = None
         self.dropout = None
         self.lr = None
+        self.momentum = None
+        self.weight_decay = None
+        self.iter = None
+        self.fine_tune = False
 
     def get_instance(self, name):
         if name == 'train':
@@ -100,33 +108,61 @@ class Data:
             self.status = self.config[item]
         item = 'word_feature_extractor'
         if item in self.config:
-            self.word_feature_extractor=self.config[item]
+            self.word_feature_extractor = self.config[item]
         item = 'use_char'
         if item in self.config:
-            self.use_char = self.config[item]
+            self.use_char = str2bool(self.config[item])
         item = 'char_feature_extractor'
         if item in self.config:
-            self.char_feature_extractor=self.config[item]
+            self.char_feature_extractor = self.config[item]
         item = 'use_crf'
         if item in self.config:
-            self.use_crf =  self.config[item]
-        item='word_embed_path'
+            self.use_crf = str2bool(self.config[item])
+        item = 'word_embed_path'
         if item in self.config:
             self.word_embed_path = self.config[item]
         item = 'word_embed_dim'
         if item in self.config:
-            self.word_embed_dim = self.config[item]
+            self.word_embed_dim = int(self.config[item])
         item = 'char_embed_dim'
         if item in self.config:
-            self.char_embed_dim = self.config[item]
+            self.char_embed_dim = int(self.config[item])
         item = 'hidden_dim'
         if item in self.config:
-            self.hidden_dim = self.config[item]
+            self.hidden_dim = int(self.config[item])
         item = 'char_hidden_dim'
         if item in self.config:
-            self.char_hidden_dim = self.config[item]
-
-
+            self.char_hidden_dim = int(self.config[item])
+        item = 'use_cuda'
+        if item in self.config:
+            self.use_cuda = str2bool(self.config[item])
+        item = 'momentum'
+        if item in self.config:
+            self.momentum = float(self.config[item])
+        item = 'weight_decay'
+        if item in self.config:
+            self.weight_decay = float(self.config[item])
+        item = 'dropout'
+        if item in self.config:
+            self.dropout = float(self.config[item])
+        item = 'iter'
+        if item in self.config:
+            self.iter = int(self.config[item])
+        item = 'batch_size'
+        if item in self.config:
+            self.batch_size = int(self.config[item])
+        item = 'lstm_layer'
+        if item in self.config:
+            self.lstm_layer = int(self.config[item])
+        item = 'fine_tune'
+        if item in self.config:
+            self.fine_tune = str2bool(self.config[item])
+        item = 'pretrain'
+        if item in self.config:
+            self.pretrain = str2bool(self.config[item])
+        item = 'pretrain_file'
+        if item in self.config:
+            self.pretrain_file = self.config[item]
 
     def show_config(self):
         for k, v in self.config.items():
@@ -178,28 +214,36 @@ class Data:
         print("build alphabet finish.")
 
     def get_instance_index(self, data):
-        word_idx, char_idx, label_idx = [], [], []
+        instance_idx,word_idx, char_idx, label_idx = [], [], [],[]
         for sample in self.train_text:
             for word in sample[0]:
-                if word in self.word_alphabet:
+                if word in self.word_alphabet.instance2index:
                     word_idx.append(self.word_alphabet.instance2index[word])
                 else:
                     word_idx.append(self.word_alphabet.instance2index[UNKNOWN])
             for char in sample[1][0]:
-                if char in self.char_alphabet:
+                if char in self.char_alphabet.instance2index:
                     char_idx.append(self.char_alphabet.instance2index[char])
                 else:
                     char_idx.append(self.char_alphabet.instance2index[UNKNOWN])
             for label in sample[2]:
-                if label in self.label_alphabet:
+                if label in self.label_alphabet.instance2index:
                     label_idx.append(self.label_alphabet.instance2index[label])
                 else:
                     label_idx.append(self.label_alphabet.instance2index[UNKNOWN])
+            instance_idx.append([word_idx,char_idx,label_idx])
         if data == "train":
-            self.train_idx = [word_idx, char_idx, label_idx]
+            self.train_idx = instance_idx
         elif data == "dev":
-            self.dev_idx = [word_idx, char_idx, label_idx]
+            self.dev_idx = instance_idx
         elif data == "test":
-            self.test_idx = [word_idx, char_idx, label_idx]
+            self.test_idx = instance_idx
         else:
             print("Data Error:pls set train/dev/test data parameter.")
+
+
+def str2bool(string):
+    if string == "True" or string == "true" or string == "TRUE":
+        return True
+    else:
+        return False
