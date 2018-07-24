@@ -69,6 +69,8 @@ class Data:
         self.weight_decay = None
         self.iter = None
         self.fine_tune = False
+        self.attention = False
+        self.attention_dim=None
 
     def get_instance(self, name):
         if name == 'train':
@@ -166,6 +168,15 @@ class Data:
         item = 'pretrain_file'
         if item in self.config:
             self.pretrain_file = self.config[item]
+        item = 'attention'
+        if item in self.config:
+            self.attention = str2bool(self.config[item])
+        item = 'attention_dim'
+        if item in self.config:
+            self.attention_dim = int(self.config[item])
+        item = 'bilstm'
+        if item in self.config:
+            self.bilstm = str2bool(self.config[item])
 
     def show_config(self):
         for k, v in self.config.items():
@@ -195,7 +206,6 @@ class Data:
                 samples.append([word_instances, char_instances, label_instances])
         if data == "train":
             self.train_text = samples
-            print(self.train_text[-1])
         elif data == "dev":
             self.dev_text = samples
         elif data == "test":
@@ -231,11 +241,14 @@ class Data:
                     word_idx.append(self.word_alphabet.instance2index[word])
                 else:
                     word_idx.append(self.word_alphabet.instance2index[UNKNOWN])
-            for char in sample[1][0]:
-                if char in self.char_alphabet.instance2index:
-                    char_idx.append(self.char_alphabet.instance2index[char])
-                else:
-                    char_idx.append(self.char_alphabet.instance2index[UNKNOWN])
+            for char in sample[1]:
+                chars = []
+                for c in char:
+                    if c in self.char_alphabet.instance2index:
+                        chars.append(self.char_alphabet.instance2index[c])
+                    else:
+                        chars.append(self.char_alphabet.instance2index[UNKNOWN])
+                char_idx.append(chars)
             for label in sample[2]:
                 if label in self.label_alphabet.instance2index:
                     label_idx.append(self.label_alphabet.instance2index[label])
