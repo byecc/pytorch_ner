@@ -148,6 +148,9 @@ class Data:
         item = 'iter'
         if item in self.config:
             self.iter = int(self.config[item])
+        item = 'optimizer'
+        if item in self.config:
+            self.optimizer = self.config[item]
         item = 'batch_size'
         if item in self.config:
             self.batch_size = int(self.config[item])
@@ -214,8 +217,15 @@ class Data:
         print("build alphabet finish.")
 
     def get_instance_index(self, data):
-        instance_idx,word_idx, char_idx, label_idx = [], [], [],[]
-        for sample in self.train_text:
+        instance_idx = []
+        if data == "train":
+            samples = self.train_text
+        elif data == "dev":
+            samples = self.dev_text
+        elif data == "test":
+            samples = self.test_text
+        for sample in samples:
+            word_idx, char_idx, label_idx = [], [], []
             for word in sample[0]:
                 if word in self.word_alphabet.instance2index:
                     word_idx.append(self.word_alphabet.instance2index[word])
@@ -231,7 +241,7 @@ class Data:
                     label_idx.append(self.label_alphabet.instance2index[label])
                 else:
                     label_idx.append(self.label_alphabet.instance2index[UNKNOWN])
-            instance_idx.append([word_idx,char_idx,label_idx])
+            instance_idx.append([word_idx, char_idx, label_idx])
         if data == "train":
             self.train_idx = instance_idx
         elif data == "dev":

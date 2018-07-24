@@ -37,7 +37,13 @@ def train(data):
 
 
 def generate_batch(instance, gpu):
-    pass
+    """
+
+    :param instance:  [[word,char,label],...]
+    :return:
+        zero padding for word and char ,with  their batch length
+
+    """
 
 
 if __name__ == "__main__":
