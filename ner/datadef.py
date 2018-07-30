@@ -1,5 +1,7 @@
 import numpy as np
 import sys
+import pickle
+import os
 
 START = "</s>"
 PAD = "</pad>"
@@ -23,10 +25,10 @@ class Alphabet:
             self.index += 1
 
     def size(self):
-        return len(self.instances)+1
+        return len(self.instances) + 1
 
-    def get_instance(self,index):
-        return self.instances[index-1]
+    def get_instance(self, index):
+        return self.instances[index - 1]
 
 
 class Data:
@@ -52,6 +54,7 @@ class Data:
         self.test_file = None
         self.pretrain_file = None
         self.word_embed_path = None
+        self.word_embed_save = None
         self.char_embed_path = None
         self.model_save_dir = None
         self.dataset = None
@@ -206,6 +209,9 @@ class Data:
         item = 'tag_scheme'
         if item in self.config:
             self.tag_scheme = self.config[item]
+        item = 'word_embed_save'
+        if item in self.config:
+            self.word_embed_save = self.config[item]
 
     def show_config(self):
         for k, v in self.config.items():
@@ -295,19 +301,25 @@ class Data:
 
     def build_pretrain_emb(self):
         if self.word_embed_path:
-            self.pretrain_word_embedding, self.word_embed_dim = build_pretrain_embedding(self.word_embed_path,
+            self.pretrain_word_embedding, self.word_embed_dim = build_pretrain_embedding(self.word_embed_save,
+                                                                                         self.word_embed_path,
                                                                                          self.word_alphabet,
                                                                                          self.word_embed_dim,
                                                                                          self.norm_word_emb)
         elif self.char_embed_path:
             self.pretrain_char_embedding, self.char_embed_dim = build_pretrain_embedding(self.char_embed_path,
+                                                                                         self.char_embed_path,
                                                                                          self.char_alphabet,
                                                                                          self.char_embed_dim,
                                                                                          self.norm_char_emb)
 
 
-def build_pretrain_embedding(embedding_path, word_alphabet, emb_dim=100, norm=True):
+def build_pretrain_embedding(embedding_save, embedding_path, word_alphabet, emb_dim=100, norm=True):
     embedd_dict = dict()
+    if embedding_save is not None and os.path.exists(embedding_save):
+        pretrain_emb = pickle.load(open(embedding_save, 'rb'))
+        embedd_dim = pretrain_emb.shape[1]
+        return pretrain_emb,embedd_dim
     if embedding_path is not None:
         embedd_dict, embedd_dim = load_pretrain_emb(embedding_path)
     alphabet_size = word_alphabet.size()
@@ -335,6 +347,7 @@ def build_pretrain_embedding(embedding_path, word_alphabet, emb_dim=100, norm=Tr
     pretrained_size = len(embedd_dict)
     print("Embedding:\n     pretrain word:%s, prefect match:%s, case_match:%s, oov:%s, oov%%:%s" % (
         pretrained_size, perfect_match, case_match, not_match, (not_match + 0.) / alphabet_size))
+    pickle.dump(pretrain_emb, open(embedding_save, 'wb'))
     return pretrain_emb, embedd_dim
 
 
@@ -346,7 +359,8 @@ def norm2one(vec):
 def load_pretrain_emb(embedding_path):
     embedd_dim = -1
     embedd_dict = dict()
-    with open(embedding_path, 'r') as file:
+    with open(embedding_path, 'r', encoding='utf-8') as file:
+        file.readline()
         for line in file:
             line = line.strip()
             if len(line) == 0:
@@ -355,7 +369,8 @@ def load_pretrain_emb(embedding_path):
             if embedd_dim < 0:
                 embedd_dim = len(tokens) - 1
             else:
-                assert (embedd_dim + 1 == len(tokens))
+                if embedd_dim + 1 != len(tokens):
+                    continue
             embedd = np.empty([1, embedd_dim])
             embedd[:] = tokens[1:]
             if sys.version_info[0] < 3:

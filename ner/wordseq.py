@@ -15,7 +15,7 @@ class WordSequence(nn.Module):
         # word
         alp_length = data.word_alphabet_size
         emb_dim = data.word_embed_dim
-        hidden_dim = data.word_embed_dim
+        hidden_dim = data.hidden_dim
 
         if data.word_feature_extractor == "LSTM":
             self.word_feature = nn.LSTM(emb_dim, data.hidden_dim, num_layers=data.lstm_layer,
@@ -29,9 +29,11 @@ class WordSequence(nn.Module):
             print("Feature Extractor Error: don't support {} word feature extractor".format(
                 self.args.word_feature_extractor))
 
-        self.word_embedding = nn.Embedding(data.word_alphabet_size, data.word_embed_dim)
-        if data.pretrain_word_embedding is not None:
-            self.word_embedding.weight.data.copy_(torch.from_numpy(data.pretrain_word_embedding))
+        self.word_embedding = LoadEmbedding(data.word_alphabet_size, data.word_embed_dim)
+        if data.pretrain:
+            self.word_embedding.load_pretrained_embedding(data.word_embed_path, data.label_alphabet.instance2index,
+                                                          requires_grad=data.fine_tune,
+                                                          embed_pickle=data.word_embed_save, binary=False)
         else:
             self.word_embedding.weight.data.copy_(
                 torch.from_numpy(self.random_embedding(data.word_alphabet_size, data.word_embed_dim)))
@@ -56,7 +58,7 @@ class WordSequence(nn.Module):
             self.char2m = nn.Linear(data.char_hidden_dim * 2, data.char_hidden_dim * 2, bias=False)
 
         self.drop = nn.Dropout(data.dropout)
-        self.hidden2tag = nn.Linear(hidden_dim, data.label_alphabet_size)
+        self.hidden2tag = nn.Linear(hidden_dim * 2, data.label_alphabet_size)
 
         # attention
         if data.attention:
@@ -81,10 +83,10 @@ class WordSequence(nn.Module):
              word_seq_length:()
         """
         word_emb = self.word_embedding(word_inputs)
-        # word_emb = pack(word_emb,word_seq_length.numpy(),batch_first=True)
-        # word_lstm_out,word_hidden = self.word_feature(word_emb)
-        # word_lstm_out = pad(word_lstm_out,batch_first=True)
-        word_rep = word_emb
+        word_emb = pack(word_emb, word_seq_length.numpy(), batch_first=True)
+        word_lstm_out, word_hidden = self.word_feature(word_emb)
+        word_lstm_out = pad(word_lstm_out, batch_first=True)
+        word_rep = word_lstm_out[0]
         if self.args.use_char:
             size = char_inputs.size(0)
             char_emb = self.char_embedding(char_inputs)
@@ -94,12 +96,12 @@ class WordSequence(nn.Module):
             char_hidden = char_hidden[0].transpose(1, 0).contiguous().view(size, -1)
             char_hidden = F.tanh(self.char2m(char_hidden))
             char_hidden = char_hidden.view(word_emb.size()[0], word_emb.size()[1], -1)
-            char_hidden = self.drop(char_hidden)
             if self.args.attention:
                 word_rep = F.tanh(self.attn1(word_emb) + self.attn2(char_hidden))
                 z = F.sigmoid(self.attn3(word_rep))
                 word_rep = F.mul(z * word_emb) + F.mul((1 - z) * char_hidden)
             else:
                 word_rep = torch.cat((word_emb, char_hidden), 2)
-        out = self.hidden2tag(word_rep)
+
+        out = self.hidden2tag(self.drop(word_rep))
         return out

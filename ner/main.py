@@ -33,7 +33,7 @@ def train(data):
         train_num = len(data.train_text)
         batch_block = train_num // data.batch_size + 1
         correct = total = total_loss = 0
-        # random.shuffle(data.train_idx)
+        random.shuffle(data.train_idx)
         for block in range(batch_block):
             left = block * data.batch_size
             right = left + data.batch_size
@@ -51,10 +51,11 @@ def train(data):
             optimizer.step()
             model.zero_grad()
         epoch_end = time.time()
-        print("Finish  Epoch:{}. Time:{}. Loss:{}. acc:{}".format(idx, epoch_end - epoch_start, total_loss,
-                                                                  correct / total))
+        print("Epoch:{}. Time:{}. Loss:{}. acc:{}".format(idx, epoch_end - epoch_start, total_loss,
+                                                          correct / total))
         evaluate(data, model, "dev")
         evaluate(data, model, "test")
+        print("Finish.")
 
 
 def evaluate(data, model, name):
@@ -71,23 +72,25 @@ def evaluate(data, model, name):
     batch_block = num // batch_size + 1
     correct_num = gold_num = pred_num = 0
     for batch in range(batch_block):
-        left = batch_block * batch_size
+        left = batch * batch_size
         right = left + batch_size
         if right > num:
             right = num
         train_instance = instances[left:right]
-        batch_word, batch_word_len, batch_char, batch_char_len, batch_label, mask = generate_batch(instances,
+        batch_word, batch_word_len, batch_char, batch_char_len, batch_label, mask = generate_batch(train_instance,
                                                                                                    data.use_cuda)
         loss, seq = model(batch_word, batch_word_len, batch_char, batch_char_len, batch_label, mask)
-        gold_list, pred_list = seq_eval(data, seq, batch_label)
+        gold_list, pred_list = seq_eval(data, seq, batch_label, mask)
         pred, correct, gold = get_ner_measure(pred_list, gold_list, data.tag_scheme)
         correct_num += correct
         pred_num += pred
         gold_num += gold
-    precision = pred_num / correct_num
-    recall = pred_num / gold_num
+    precision = correct_num / pred_num
+    recall = correct_num / gold_num
     f = 2 * precision * recall / (precision + recall)
-    print("{} Eval: \tp:{}\tr:{}\tf:{}".format(name, precision, recall, f))
+    print("\t{} Eval: gold_num={}\tpred_num={}\tcorrect_num={}\n\tp:{}\tr:{}\tf:{}".format(name, gold_num, pred_num,
+                                                                                         correct_num,
+                                                                                         precision, recall, f))
 
 
 def predict_check(predict, gold, mask):
@@ -163,5 +166,5 @@ if __name__ == "__main__":
         data.get_instance_index("train")
         data.get_instance_index("dev")
         data.get_instance_index("test")
-        data.build_pretrain_emb()
+        # data.build_pretrain_emb()
         train(data)

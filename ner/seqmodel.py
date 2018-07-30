@@ -23,6 +23,7 @@ class SeqModel(nn.Module):
         else:
             loss = F.cross_entropy(out.view(-1, out.size(2)), batch_label.view(-1), ignore_index=0, size_average=False)
             _, seq = torch.max(out, 2)
+            seq = mask.long()*seq
         if self.args.average_loss:
             loss = loss/self.args.batch_size
         return loss, seq
