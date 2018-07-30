@@ -1,22 +1,32 @@
+import numpy as np
+import sys
+
 START = "</s>"
 PAD = "</pad>"
 UNKNOWN = "</unk>"
 
 
 class Alphabet:
-    def __init__(self, name):
+    def __init__(self, name, unknown_label=True):
         self.name = name
         self.instance2index = {}
         self.instances = []
         # self.keep_growing = keep_growing
-        self.index = 0
-        self.add(UNKNOWN)
+        self.index = 1
+        if unknown_label:
+            self.add(UNKNOWN)
 
     def add(self, instance):
         if instance not in self.instance2index:
             self.instances.append(instance)
             self.instance2index[instance] = self.index
             self.index += 1
+
+    def size(self):
+        return len(self.instances)+1
+
+    def get_instance(self,index):
+        return self.instances[index-1]
 
 
 class Data:
@@ -31,7 +41,7 @@ class Data:
 
         self.word_alphabet = Alphabet("word")
         self.char_alphabet = Alphabet("char")
-        self.label_alphabet = Alphabet("label")
+        self.label_alphabet = Alphabet("label", unknown_label=False)
         self.word_alphabet_size = 0
         self.char_alphabet_size = 0
         self.label_alphabet_size = 0
@@ -42,6 +52,7 @@ class Data:
         self.test_file = None
         self.pretrain_file = None
         self.word_embed_path = None
+        self.char_embed_path = None
         self.model_save_dir = None
         self.dataset = None
         self.word_normalize = False
@@ -50,6 +61,9 @@ class Data:
         self.char_feature_extractor = "LSTM"
         self.use_crf = False
         self.use_cuda = False
+        self.pretrain_word_embedding = None
+        self.pretrain_char_embedding = None
+        self.tag_scheme = None
 
         # hyperparameters
         self.pretrain = True
@@ -70,7 +84,10 @@ class Data:
         self.iter = None
         self.fine_tune = False
         self.attention = False
-        self.attention_dim=None
+        self.attention_dim = None
+        self.average_loss = False
+        self.norm_word_emb = False
+        self.norm_char_emb = False
 
     def get_instance(self, name):
         if name == 'train':
@@ -123,6 +140,9 @@ class Data:
         item = 'word_embed_path'
         if item in self.config:
             self.word_embed_path = self.config[item]
+        item = 'char_embed_path'
+        if item in self.config:
+            self.char_embed_path = self.config[item]
         item = 'word_embed_dim'
         if item in self.config:
             self.word_embed_dim = int(self.config[item])
@@ -138,6 +158,9 @@ class Data:
         item = 'use_cuda'
         if item in self.config:
             self.use_cuda = str2bool(self.config[item])
+        item = 'lr'
+        if item in self.config:
+            self.lr = float(self.config[item])
         item = 'momentum'
         if item in self.config:
             self.momentum = float(self.config[item])
@@ -162,12 +185,6 @@ class Data:
         item = 'fine_tune'
         if item in self.config:
             self.fine_tune = str2bool(self.config[item])
-        item = 'pretrain'
-        if item in self.config:
-            self.pretrain = str2bool(self.config[item])
-        item = 'pretrain_file'
-        if item in self.config:
-            self.pretrain_file = self.config[item]
         item = 'attention'
         if item in self.config:
             self.attention = str2bool(self.config[item])
@@ -177,6 +194,18 @@ class Data:
         item = 'bilstm'
         if item in self.config:
             self.bilstm = str2bool(self.config[item])
+        item = 'average_loss'
+        if item in self.config:
+            self.average_loss = str2bool(self.config[item])
+        item = 'norm_word_emb'
+        if item in self.config:
+            self.norm_word_emb = str2bool(self.config[item])
+        item = 'norm_char_emb'
+        if item in self.config:
+            self.norm_char_emb = str2bool(self.config[item])
+        item = 'tag_scheme'
+        if item in self.config:
+            self.tag_scheme = self.config[item]
 
     def show_config(self):
         for k, v in self.config.items():
@@ -221,9 +250,9 @@ class Data:
                 self.char_alphabet.add(char)
             for label in sample[2]:
                 self.label_alphabet.add(label)
-        self.word_alphabet_size = len(self.word_alphabet.instance2index)
-        self.char_alphabet_size = len(self.char_alphabet.instance2index)
-        self.label_alphabet_size = len(self.label_alphabet.instance2index)
+        self.word_alphabet_size = self.word_alphabet.size()
+        self.char_alphabet_size = self.char_alphabet.size()
+        self.label_alphabet_size = self.label_alphabet.size()
         print("build alphabet finish.")
 
     def get_instance_index(self, data):
@@ -263,6 +292,78 @@ class Data:
             self.test_idx = instance_idx
         else:
             print("Data Error:pls set train/dev/test data parameter.")
+
+    def build_pretrain_emb(self):
+        if self.word_embed_path:
+            self.pretrain_word_embedding, self.word_embed_dim = build_pretrain_embedding(self.word_embed_path,
+                                                                                         self.word_alphabet,
+                                                                                         self.word_embed_dim,
+                                                                                         self.norm_word_emb)
+        elif self.char_embed_path:
+            self.pretrain_char_embedding, self.char_embed_dim = build_pretrain_embedding(self.char_embed_path,
+                                                                                         self.char_alphabet,
+                                                                                         self.char_embed_dim,
+                                                                                         self.norm_char_emb)
+
+
+def build_pretrain_embedding(embedding_path, word_alphabet, emb_dim=100, norm=True):
+    embedd_dict = dict()
+    if embedding_path is not None:
+        embedd_dict, embedd_dim = load_pretrain_emb(embedding_path)
+    alphabet_size = word_alphabet.size()
+    scale = np.sqrt(3.0 / embedd_dim)
+    pretrain_emb = np.empty([word_alphabet.size(), embedd_dim])
+    perfect_match = 0
+    case_match = 0
+    not_match = 0
+    for word, index in word_alphabet.instance2index.items():
+        if word in embedd_dict:
+            if norm:
+                pretrain_emb[index, :] = norm2one(embedd_dict[word])
+            else:
+                pretrain_emb[index, :] = embedd_dict[word]
+            perfect_match += 1
+        elif word.lower() in embedd_dict:
+            if norm:
+                pretrain_emb[index, :] = norm2one(embedd_dict[word.lower()])
+            else:
+                pretrain_emb[index, :] = embedd_dict[word.lower()]
+            case_match += 1
+        else:
+            pretrain_emb[index, :] = np.random.uniform(-scale, scale, [1, embedd_dim])
+            not_match += 1
+    pretrained_size = len(embedd_dict)
+    print("Embedding:\n     pretrain word:%s, prefect match:%s, case_match:%s, oov:%s, oov%%:%s" % (
+        pretrained_size, perfect_match, case_match, not_match, (not_match + 0.) / alphabet_size))
+    return pretrain_emb, embedd_dim
+
+
+def norm2one(vec):
+    root_sum_square = np.sqrt(np.sum(np.square(vec)))
+    return vec / root_sum_square
+
+
+def load_pretrain_emb(embedding_path):
+    embedd_dim = -1
+    embedd_dict = dict()
+    with open(embedding_path, 'r') as file:
+        for line in file:
+            line = line.strip()
+            if len(line) == 0:
+                continue
+            tokens = line.split()
+            if embedd_dim < 0:
+                embedd_dim = len(tokens) - 1
+            else:
+                assert (embedd_dim + 1 == len(tokens))
+            embedd = np.empty([1, embedd_dim])
+            embedd[:] = tokens[1:]
+            if sys.version_info[0] < 3:
+                first_col = tokens[0].decode('utf-8')
+            else:
+                first_col = tokens[0]
+            embedd_dict[first_col] = embedd
+    return embedd_dict, embedd_dim
 
 
 def str2bool(string):
