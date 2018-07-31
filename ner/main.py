@@ -166,5 +166,5 @@ if __name__ == "__main__":
         data.get_instance_index("train")
         data.get_instance_index("dev")
         data.get_instance_index("test")
-        # data.build_pretrain_emb()
+        data.build_pretrain_emb()
         train(data)

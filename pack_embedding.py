@@ -77,7 +77,7 @@ class LoadEmbedding(nn.Embedding):
                         word, weight = data[0], fromstring(' '.join(data[1:]), dtype=datatype, sep=' ')
                         if word in vocab_dict:
                             self.embedding_dict[word] = weight
-
+            print(dim_size)
             nparray = np.zeros((len(vocab_dict), dim_size))
             num = 0
             oov_num = 0

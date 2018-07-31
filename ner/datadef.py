@@ -91,6 +91,7 @@ class Data:
         self.average_loss = False
         self.norm_word_emb = False
         self.norm_char_emb = False
+        self.number_normalized = False
 
     def get_instance(self, name):
         if name == 'train':
@@ -212,6 +213,9 @@ class Data:
         item = 'word_embed_save'
         if item in self.config:
             self.word_embed_save = self.config[item]
+        item = 'number_normalized'
+        if item in self.config:
+            self.number_normalized = str2bool(self.config[item])
 
     def show_config(self):
         for k, v in self.config.items():
@@ -250,6 +254,20 @@ class Data:
 
     def build_alphabet(self):
         for sample in self.train_text:
+            for word in sample[0]:
+                self.word_alphabet.add(word)
+            for char in sample[1][0]:
+                self.char_alphabet.add(char)
+            for label in sample[2]:
+                self.label_alphabet.add(label)
+        for sample in self.dev_text:
+            for word in sample[0]:
+                self.word_alphabet.add(word)
+            for char in sample[1][0]:
+                self.char_alphabet.add(char)
+            for label in sample[2]:
+                self.label_alphabet.add(label)
+        for sample in self.test_text:
             for word in sample[0]:
                 self.word_alphabet.add(word)
             for char in sample[1][0]:
@@ -355,6 +373,15 @@ def norm2one(vec):
     root_sum_square = np.sqrt(np.sum(np.square(vec)))
     return vec / root_sum_square
 
+
+def normalize_word(word):
+    new_word = ""
+    for char in word:
+        if char.isdigit():
+            new_word += '0'
+        else:
+            new_word += char
+    return new_word
 
 def load_pretrain_emb(embedding_path):
     embedd_dim = -1

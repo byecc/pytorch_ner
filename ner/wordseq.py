@@ -29,11 +29,9 @@ class WordSequence(nn.Module):
             print("Feature Extractor Error: don't support {} word feature extractor".format(
                 self.args.word_feature_extractor))
 
-        self.word_embedding = LoadEmbedding(data.word_alphabet_size, data.word_embed_dim)
+        self.word_embedding = nn.Embedding(data.word_alphabet_size, data.word_embed_dim)
         if data.pretrain:
-            self.word_embedding.load_pretrained_embedding(data.word_embed_path, data.label_alphabet.instance2index,
-                                                          requires_grad=data.fine_tune,
-                                                          embed_pickle=data.word_embed_save, binary=False)
+            self.word_embedding.weight.data.copy_(torch.from_numpy(data.pretrain_word_embedding))
         else:
             self.word_embedding.weight.data.copy_(
                 torch.from_numpy(self.random_embedding(data.word_alphabet_size, data.word_embed_dim)))
