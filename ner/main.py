@@ -1,7 +1,7 @@
 import torch
 import argparse
 import pack_embedding
-from ner.data import *
+from data import *
 import torch.optim as optim
 import torch.autograd as autograd
 import torch.functional as F
@@ -41,9 +41,10 @@ def train(data):
             if right > train_num:
                 right = train_num
             instance = data.train_idx[left:right]
-            batch_word, batch_word_len, batch_char, batch_char_len, batch_label, mask = generate_batch(instance,
-                                                                                                       data.use_cuda)
-            loss, seq = model.forward(batch_word, batch_word_len, batch_char, batch_char_len, batch_label, mask)
+            batch_word, batch_word_len, word_recover, batch_char, batch_char_len, char_recover, batch_label, mask = generate_batch(
+                instance,
+                data.use_cuda)
+            loss, seq = model.forward(batch_word, batch_word_len, batch_char, batch_char_len,char_recover, batch_label, mask)
             right_token, total_token = predict_check(seq, batch_label, mask)
             correct += right_token
             total += total_token
@@ -78,9 +79,10 @@ def evaluate(data, model, name):
         if right > num:
             right = num
         train_instance = instances[left:right]
-        batch_word, batch_word_len, batch_char, batch_char_len, batch_label, mask = generate_batch(train_instance,
-                                                                                                   data.use_cuda)
-        loss, seq = model(batch_word, batch_word_len, batch_char, batch_char_len, batch_label, mask)
+        batch_word, batch_word_len, word_recover, batch_char, batch_char_len, char_recover, batch_label, mask = generate_batch(
+            train_instance,
+            data.use_cuda)
+        loss, seq = model(batch_word, batch_word_len, batch_char, batch_char_len,char_recover, batch_label, mask)
         gold_list, pred_list = seq_eval(data, seq, batch_label, mask)
         pred, correct, gold = get_ner_measure(pred_list, gold_list, data.tag_scheme)
         correct_num += correct
@@ -90,8 +92,8 @@ def evaluate(data, model, name):
     recall = correct_num / gold_num
     f = 2 * precision * recall / (precision + recall)
     print("\t{} Eval: gold_num={}\tpred_num={}\tcorrect_num={}\n\tp:{}\tr:{}\tf:{}".format(name, gold_num, pred_num,
-                                                                                         correct_num,
-                                                                                         precision, recall, f))
+                                                                                           correct_num,
+                                                                                           precision, recall, f))
 
 
 def predict_check(predict, gold, mask):
@@ -145,8 +147,10 @@ def generate_batch(instance, gpu):
     char_seq_length = char_seq_length.view(-1)
     char_seq_length, char_sort_idx = torch.sort(char_seq_length, descending=True)
     char_seq_tensor = char_seq_tensor[char_sort_idx]
+    _, char_seq_recover = char_sort_idx.sort(0, descending=False)
+    _, word_seq_recover = sort_idx.sort(0, descending=False)
 
-    return word_seq_tensor, word_seq_length, char_seq_tensor, char_seq_length, label_seq_tensor, mask
+    return word_seq_tensor, word_seq_length, word_seq_recover, char_seq_tensor, char_seq_length, char_seq_recover, label_seq_tensor, mask
 
 
 if __name__ == "__main__":

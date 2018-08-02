@@ -15,15 +15,15 @@ class SeqModel(nn.Module):
         if data.use_crf:
             self.crf = CRF(target_size, data.use_cuda)
 
-    def forward(self, batch_word, batch_word_len, batch_char, batch_char_len, batch_label, mask):
-        out = self.word_hidden(batch_word, batch_word_len, batch_char, batch_char_len)
+    def forward(self, batch_word, batch_word_len, batch_char, batch_char_len, char_recover, batch_label, mask):
+        out = self.word_hidden(batch_word, batch_word_len, batch_char, batch_char_len,char_recover)
         if self.args.use_crf:
             loss = self.crf(out, mask, batch_label)
             score, seq = self.crf.viterbi_decode(out, mask)
         else:
             loss = F.cross_entropy(out.view(-1, out.size(2)), batch_label.view(-1), ignore_index=0, size_average=False)
             _, seq = torch.max(out, 2)
-            seq = mask.long()*seq
+            seq = mask.long() * seq
         if self.args.average_loss:
-            loss = loss/self.args.batch_size
+            loss = loss / self.args.batch_size
         return loss, seq
