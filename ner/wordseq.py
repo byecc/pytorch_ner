@@ -30,6 +30,7 @@ class WordSequence(nn.Module):
                 self.args.word_feature_extractor))
 
         self.word_embedding = nn.Embedding(data.word_alphabet_size, data.word_embed_dim)
+        self.word_embedding.weight.requires_grad = data.fine_tune
         if data.pretrain:
             self.word_embedding.weight.data.copy_(torch.from_numpy(data.pretrain_word_embedding))
         else:
@@ -42,6 +43,7 @@ class WordSequence(nn.Module):
                 hidden_dim += self.args.char_hidden_dim
             hidden_dim += self.args.char_hidden_dim
             self.char_embedding = nn.Embedding(data.char_alphabet_size, data.char_embed_dim)
+            self.char_embedding.weight.requires_grad = data.fine_tune
             if data.pretrain_char_embedding is not None:
                 self.char_embedding.weight.data.copy_(torch.from_numpy(data.pretrain_char_embedding))
             else:

@@ -9,20 +9,29 @@ UNKNOWN = "</unk>"
 
 
 class Alphabet:
-    def __init__(self, name, unknown_label=True):
+    def __init__(self, name, unknown_label=True,threshold=0):
         self.name = name
         self.instance2index = {}
         self.instances = []
         # self.keep_growing = keep_growing
         self.index = 1
+        self.threshold = threshold
+        self.words = dict()
         if unknown_label:
-            self.add(UNKNOWN)
+            self.instances.append(UNKNOWN)
+            self.instance2index[UNKNOWN] = self.index
+            self.index += 1
 
     def add(self, instance):
         if instance not in self.instance2index:
-            self.instances.append(instance)
-            self.instance2index[instance] = self.index
-            self.index += 1
+            if instance not in self.words:
+                self.words[instance] = 1
+            else:
+                self.words[instance] = self.words[instance]+1
+            if self.words[instance] > self.threshold:
+                self.instances.append(instance)
+                self.instance2index[instance] = self.index
+                self.index += 1
 
     def size(self):
         return len(self.instances) + 1
@@ -92,6 +101,7 @@ class Data:
         self.norm_word_emb = False
         self.norm_char_emb = False
         self.number_normalized = False
+        self.threshold = None
 
     def get_instance(self, name):
         if name == 'train':
@@ -216,6 +226,10 @@ class Data:
         item = 'number_normalized'
         if item in self.config:
             self.number_normalized = str2bool(self.config[item])
+        item = 'threshold'
+        if item in self.config:
+            self.threshold = int(self.config[item])
+            self.word_alphabet.threshold = self.threshold
 
     def show_config(self):
         for k, v in self.config.items():
@@ -234,6 +248,8 @@ class Data:
                         info = line.strip().split()
                         word = info[0]
                         ner_tag = info[3]
+                        if self.number_normalized:
+                            word = normalize_word(word)
                         word_instances.append(word)
                         char_instances.append(list(word))
                         label_instances.append(ner_tag)
@@ -260,20 +276,20 @@ class Data:
                 self.char_alphabet.add(char)
             for label in sample[2]:
                 self.label_alphabet.add(label)
-        for sample in self.dev_text:
-            for word in sample[0]:
-                self.word_alphabet.add(word)
-            for char in sample[1][0]:
-                self.char_alphabet.add(char)
-            for label in sample[2]:
-                self.label_alphabet.add(label)
-        for sample in self.test_text:
-            for word in sample[0]:
-                self.word_alphabet.add(word)
-            for char in sample[1][0]:
-                self.char_alphabet.add(char)
-            for label in sample[2]:
-                self.label_alphabet.add(label)
+        # for sample in self.dev_text:
+        #     for word in sample[0]:
+        #         self.word_alphabet.add(word)
+        #     for char in sample[1][0]:
+        #         self.char_alphabet.add(char)
+        #     for label in sample[2]:
+        #         self.label_alphabet.add(label)
+        # for sample in self.test_text:
+        #     for word in sample[0]:
+        #         self.word_alphabet.add(word)
+        #     for char in sample[1][0]:
+        #         self.char_alphabet.add(char)
+        #     for label in sample[2]:
+        #         self.label_alphabet.add(label)
         self.word_alphabet_size = self.word_alphabet.size()
         self.char_alphabet_size = self.char_alphabet.size()
         self.label_alphabet_size = self.label_alphabet.size()
@@ -332,12 +348,13 @@ class Data:
                                                                                          self.norm_char_emb)
 
 
+
 def build_pretrain_embedding(embedding_save, embedding_path, word_alphabet, emb_dim=100, norm=True):
     embedd_dict = dict()
     if embedding_save is not None and os.path.exists(embedding_save):
         pretrain_emb = pickle.load(open(embedding_save, 'rb'))
         embedd_dim = pretrain_emb.shape[1]
-        return pretrain_emb,embedd_dim
+        return pretrain_emb, embedd_dim
     if embedding_path is not None:
         embedd_dict, embedd_dim = load_pretrain_emb(embedding_path)
     alphabet_size = word_alphabet.size()
@@ -383,6 +400,7 @@ def normalize_word(word):
             new_word += char
     return new_word
 
+
 def load_pretrain_emb(embedding_path):
     embedd_dim = -1
     embedd_dict = dict()
@@ -413,3 +431,63 @@ def str2bool(string):
         return True
     else:
         return False
+
+
+def statistic_dataset_entity(path):
+    LOC = MISC = ORG = PER = 0
+    entity = None
+    with open(path, 'r') as fin:
+        for line in fin:
+            if line == '\n':
+                continue
+            else:
+                info = line.split()
+                label = info[3]
+                if "B-" in label:
+                    if entity is not None:
+                        if entity == "MISC":
+                            MISC += 1
+                        elif entity == "LOC":
+                            LOC += 1
+                        elif entity == "PER":
+                            PER += 1
+                        elif entity == "ORG":
+                            ORG += 1
+                        else:
+                            print("entity Error.")
+                        entity = label.split('-')[1]
+                    else:
+                        entity = label.split('-')[1]
+                elif "I-" in label:
+                    if entity is not None:
+                        continue
+                    else:
+                        print(line,label,entity)
+                        print("BIO Error.")
+                elif "O" in label:
+                    if entity is not None:
+                        if entity == "MISC":
+                            MISC += 1
+                        elif entity == "LOC":
+                            LOC += 1
+                        elif entity == "PER":
+                            PER += 1
+                        elif entity == "ORG":
+                            ORG += 1
+                        else:
+                            print("entity Error.")
+                        entity = None
+                    else:
+                        continue
+                else:
+                    print("label Error.")
+    print("LOC={}\tMISC={}\tORG={}\tPER={}\t".format(LOC, MISC, ORG, PER))
+
+
+if __name__ == "__main__":
+    print("train dataset:\t",end='')
+    statistic_dataset_entity("../data/conll2003/train.txt")
+    print("dev dataset:\t",end='')
+    statistic_dataset_entity("../data/conll2003/dev.txt")
+    print("test dataset:\t",end='')
+    statistic_dataset_entity("../data/conll2003/test.txt")

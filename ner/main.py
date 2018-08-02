@@ -1,7 +1,7 @@
 import torch
 import argparse
 import pack_embedding
-from ner.datadef import *
+from ner.data import *
 import torch.optim as optim
 import torch.autograd as autograd
 import torch.functional as F
@@ -20,12 +20,13 @@ np.random.seed(seed_num)
 def train(data):
     print("Training model...")
     model = SeqModel(data)
+    parameters = filter(lambda p: p.requires_grad, model.parameters())
     if data.optimizer == "SGD":
-        optimizer = optim.SGD(model.parameters(), lr=data.lr, momentum=data.momentum, weight_decay=data.weight_decay)
+        optimizer = optim.SGD(parameters, lr=data.lr, momentum=data.momentum, weight_decay=data.weight_decay)
     elif data.optimizer == "Adagrad":
-        optimizer = optim.Adagrad(model.parameters(), lr=data.lr, weight_decay=data.weight_decay)
+        optimizer = optim.Adagrad(parameters, lr=data.lr, weight_decay=data.weight_decay)
     elif data.optimizer == "Adam":
-        optimizer = optim.Adam(model.parameters(), lr=data.lr, weight_decay=data.weight_decay)
+        optimizer = optim.Adam(parameters, lr=data.lr, weight_decay=data.weight_decay)
     else:
         print("Optimizer Error: {} optimizer is not support.".format(data.optimizer))
     for idx in range(data.iter):
