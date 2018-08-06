@@ -8,8 +8,8 @@ import torch.functional as F
 import random
 import numpy as np
 import time
-from ner.seqmodel import SeqModel
-from ner.eval import *
+from seqmodel import SeqModel
+from eval import *
 
 seed_num = 233
 random.seed(seed_num)
@@ -44,7 +44,8 @@ def train(data):
             batch_word, batch_word_len, word_recover, batch_char, batch_char_len, char_recover, batch_label, mask = generate_batch(
                 instance,
                 data.use_cuda)
-            loss, seq = model.forward(batch_word, batch_word_len, batch_char, batch_char_len,char_recover, batch_label, mask)
+            loss, seq = model.forward(batch_word, batch_word_len, batch_char, batch_char_len, char_recover, batch_label,
+                                      mask)
             right_token, total_token = predict_check(seq, batch_label, mask)
             correct += right_token
             total += total_token
@@ -69,6 +70,7 @@ def evaluate(data, model, name):
         instances = data.test_idx
     else:
         print("Error: no {} evaluate data".format(name))
+    model.eval()
     batch_size = data.batch_size
     num = len(instances)
     batch_block = num // batch_size + 1
@@ -78,11 +80,11 @@ def evaluate(data, model, name):
         right = left + batch_size
         if right > num:
             right = num
-        train_instance = instances[left:right]
+        instance = instances[left:right]
         batch_word, batch_word_len, word_recover, batch_char, batch_char_len, char_recover, batch_label, mask = generate_batch(
-            train_instance,
+            instance,
             data.use_cuda)
-        loss, seq = model(batch_word, batch_word_len, batch_char, batch_char_len,char_recover, batch_label, mask)
+        loss, seq = model(batch_word, batch_word_len, batch_char, batch_char_len, char_recover, batch_label, mask)
         gold_list, pred_list = seq_eval(data, seq, batch_label, mask)
         pred, correct, gold = get_ner_measure(pred_list, gold_list, data.tag_scheme)
         correct_num += correct
@@ -141,10 +143,9 @@ def generate_batch(instance, gpu):
     for idx, (seq, seq_len) in enumerate(zip(pad_chars, char_seq_length)):
         for idy, (word, word_len) in enumerate(zip(seq, seq_len)):
             char_seq_tensor[idx, idy, :word_len] = torch.LongTensor(word)
-    # char_seq_tensor = char_seq_tensor[sort_idx]
-    # char_seq_length = char_seq_length[sort_idx]
-    char_seq_tensor = char_seq_tensor.view(-1, max_word_len)
-    char_seq_length = char_seq_length.view(-1)
+    char_seq_tensor = char_seq_tensor[sort_idx].view(-1, max_word_len)
+    char_seq_length = char_seq_length[sort_idx].view(-1)
+
     char_seq_length, char_sort_idx = torch.sort(char_seq_length, descending=True)
     char_seq_tensor = char_seq_tensor[char_sort_idx]
     _, char_seq_recover = char_sort_idx.sort(0, descending=False)

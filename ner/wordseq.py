@@ -89,12 +89,12 @@ class WordSequence(nn.Module):
         word_rep = self.drop(word_emb)
         if self.args.use_char:
             size = char_inputs.size(0)
-            char_emb = self.drop(self.char_embedding(char_inputs))
+            char_emb = self.char_embedding(char_inputs)
             char_emb = pack(char_emb, char_seq_length.numpy(), batch_first=True)
             char_lstm_out, char_hidden = self.char_feature(char_emb)
             char_lstm_out = pad(char_lstm_out, batch_first=True)
             char_hidden = char_hidden[0].transpose(1, 0).contiguous().view(size, -1)
-            char_hidden = char_hidden[char_recover]
+            # char_hidden = char_hidden[char_recover]
             char_hidden = char_hidden.view(batch_size, seq_len, -1)
             if self.args.attention:
                 word_rep = F.tanh(self.attn1(word_emb) + self.attn2(char_hidden))
