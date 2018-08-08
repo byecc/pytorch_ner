@@ -18,7 +18,7 @@ class WordSequence(nn.Module):
         hidden_dim = data.hidden_dim
 
         if data.use_char:
-            emb_dim += data.char_hidden_dim*2
+            emb_dim += data.char_hidden_dim * 2
         if data.word_feature_extractor == "LSTM":
             self.word_feature = nn.LSTM(emb_dim, data.hidden_dim, num_layers=data.lstm_layer,
                                         batch_first=True, bidirectional=data.bilstm)
@@ -68,7 +68,9 @@ class WordSequence(nn.Module):
                 self.attn2 = nn.Linear(data.char_hidden_dim * 2, data.attention_dim, bias=False)
             else:
                 self.attn2 = nn.Linear(data.char_hidden_dim, data.attention_dim, bias=False)
-            self.attn3 = nn.Linear(data.attention_dim, 1, bias=False)
+            self.attn3 = nn.Linear(data.attention_dim, data.attention_dim, bias=False)
+            self.word_feature = nn.LSTM(data.attention_dim, data.hidden_dim, num_layers=data.lstm_layer,
+                                        batch_first=True, bidirectional=data.bilstm)
 
     def random_embedding(self, vocab_size, embedding_dim):
         pretrain_emb = np.empty([vocab_size, embedding_dim])
@@ -77,7 +79,7 @@ class WordSequence(nn.Module):
             pretrain_emb[index, :] = np.random.uniform(-scale, scale, [1, embedding_dim])
         return pretrain_emb
 
-    def forward(self, word_inputs, word_seq_length, char_inputs, char_seq_length,char_recover):
+    def forward(self, word_inputs, word_seq_length, char_inputs, char_seq_length, char_recover):
         """
 
              word_inputs: (batch_size,seq_len)
@@ -94,12 +96,13 @@ class WordSequence(nn.Module):
             char_lstm_out, char_hidden = self.char_feature(char_emb)
             char_lstm_out = pad(char_lstm_out, batch_first=True)
             char_hidden = char_hidden[0].transpose(1, 0).contiguous().view(size, -1)
-            # char_hidden = char_hidden[char_recover]
+            char_hidden = char_hidden[char_recover]
             char_hidden = char_hidden.view(batch_size, seq_len, -1)
             if self.args.attention:
                 word_rep = F.tanh(self.attn1(word_emb) + self.attn2(char_hidden))
                 z = F.sigmoid(self.attn3(word_rep))
-                word_rep = F.mul(z * word_emb) + F.mul((1 - z) * char_hidden)
+                x = 1-z
+                word_rep = F.mul(z, word_emb) + F.mul(x, char_hidden)
             else:
                 word_rep = torch.cat((word_emb, char_hidden), 2)
 
