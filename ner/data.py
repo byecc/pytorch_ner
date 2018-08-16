@@ -66,6 +66,7 @@ class Data:
         self.word_embed_save = None
         self.char_embed_path = None
         self.model_save_dir = None
+        self.result_save_dir = None
         self.dataset = None
         self.word_normalize = False
         self.word_feature_extractor = "LSTM"
@@ -78,7 +79,7 @@ class Data:
         self.tag_scheme = None
 
         # hyperparameters
-        self.pretrain = True
+        self.pretrain = False
         self.word_embed_dim = None
         self.char_embed_dim = None
         self.word_seq_feature = None
@@ -133,6 +134,12 @@ class Data:
         item = 'test_file'
         if item in self.config:
             self.test_file = self.config[item]
+        item = 'model_save_dir'
+        if item in self.config:
+            self.model_save_dir = self.config[item]
+        item = 'result_save_dir'
+        if item in self.config:
+            self.result_save_dir = self.config[item]
         item = 'dataset'
         if item in self.config:
             self.dataset = self.config[item]
@@ -196,6 +203,9 @@ class Data:
         item = 'lstm_layer'
         if item in self.config:
             self.lstm_layer = int(self.config[item])
+        item = 'pretrain'
+        if item in self.config:
+            self.pretrain = str2bool(self.config[item])
         item = 'fine_tune'
         if item in self.config:
             self.fine_tune = str2bool(self.config[item])
@@ -259,6 +269,29 @@ class Data:
                         char_instances = []
                         label_instances = []
                 samples.append([word_instances, char_instances, label_instances])
+            elif datasetname == 'ali':
+                word_instances = []
+                char_instances = []
+                label_instances = []
+                for line in fin:
+                    if line != '\n':
+                        info = line.strip().split()
+                        word = info[0]
+                        ner_tag = info[1]
+                        if self.number_normalized:
+                            word = normalize_word(word)
+                        word_instances.append(word)
+                        char_instances.append(list(word))
+                        label_instances.append(ner_tag)
+                    else:
+                        if len(word_instances)>0:
+                            samples.append([word_instances, char_instances, label_instances])
+                        word_instances = []
+                        char_instances = []
+                        label_instances = []
+                if len(word_instances) > 0:
+                    samples.append([word_instances, char_instances, label_instances])
+        x = samples[len(samples)-1]
         if data == "train":
             self.train_text = samples
         elif data == "dev":

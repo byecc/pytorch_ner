@@ -1,6 +1,9 @@
-def seq_eval(data, pred, gold,mask):
+def seq_eval(data, pred, gold, mask, recover):
     pred_list = []
     gold_list = []
+    pred = pred[recover]
+    gold = gold[recover]
+    mask = mask[recover]
     batch_size = gold.size(0)
     seq_len = gold.size(1)
     pred_tag = pred.cpu().data.numpy()
@@ -11,9 +14,10 @@ def seq_eval(data, pred, gold,mask):
         gold = [data.label_alphabet.get_instance(gold_tag[idx][idy]) for idy in range(seq_len) if mask[idx][idy] != 0]
         pred_list.append(pred)
         gold_list.append(gold)
-    return gold_list,pred_list
+    return gold_list, pred_list
 
-def get_ner_measure(pred,gold,scheme):
+
+def get_ner_measure(pred, gold, scheme):
     sen_num = len(pred)
     predict_num = correct_num = gold_num = 0
     for idx in range(sen_num):
@@ -23,20 +27,20 @@ def get_ner_measure(pred,gold,scheme):
             predict_num += len(pred_entity)
             gold_num += len(gold_entity)
             correct_num += len(list(set(gold_entity).intersection(set(pred_entity))))
-        else: # "BMES"
+        else:  # "BMES"
             pass
-    return predict_num,correct_num,gold_num
+    return predict_num, correct_num, gold_num
 
 
 def get_entity(label_list):
     sen_len = len(label_list)
     entity_list = []
     entity = None
-    entity_index =None
-    for idx,current in enumerate(label_list):
+    entity_index = None
+    for idx, current in enumerate(label_list):
         if "B-" in current:
             if entity is not None:
-                entity_list.append("["+entity_index+"]"+entity)
+                entity_list.append("[" + entity_index + "]" + entity)
                 entity = None
                 entity_index = None
             entity = current.split("-")[1]
@@ -48,28 +52,19 @@ def get_entity(label_list):
                 continue
         elif "O" in current:
             if entity is not None:
-                entity_list.append("["+entity_index+"]"+entity)
+                entity_list.append("[" + entity_index + "]" + entity)
                 entity = None
                 entity_index = None
         else:
-            print("Label Error.")
+            print("Label Error. current:{}".format(current))
     if entity is not None:
-        entity_list.append("["+entity_index+"]"+entity)
+        entity_list.append("[" + entity_index + "]" + entity)
     return entity_list
 
 
-class Eval:
-    def __init__(self, data, pred, gold):
-        self.predict_num = 0
-        self.correct_num = 0
-        self.gold_num = 0
-
-        self.precision = 0
-        self.recall = 0
-        self.f1 = 0
-
-    def acc(self):
-        return self.correct_num / self.gold_num
-
-    def getFscore(self):
-        pass
+def output_result(texts,pred_list,result_dir,info):
+    with open(result_dir+'result_'+info,'w',encoding='utf-8') as fout:
+        for idx,text in enumerate(texts):
+            for idy,t in enumerate(text[0]):
+                fout.write(t+'\t'+pred_list[idx][idy]+'\n')
+            fout.write('\n')
