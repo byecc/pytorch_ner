@@ -3,7 +3,7 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Joint Chinese Word Segmentation and POS Tagging")
-    parser.add_argument("--train_path", default="../data/train.txt")
+    parser.add_argument("--train_path", default="../data/train_5w.txt")
     parser.add_argument("--dev_path", default="../data/dev.txt")
     parser.add_argument("--test_path", default="../data/test.txt")
     parser.add_argument("--batchsize", default=36, type=int)

@@ -17,6 +17,8 @@ class CRF(nn.Module):
         transition_mat[STOP_TAG, :] = -10000.0
         transition_mat[:, 0] = -10000.0 # pad index
         transition_mat[0, :] = -10000.0
+        if self.gpu:
+            transition_mat = transition_mat.cuda()
         self.transitions = nn.Parameter(transition_mat)
 
     def forward(self, input, mask, tags):
@@ -113,6 +115,8 @@ class CRF(nn.Module):
             batch_size, tag_size, tag_size)
         _, last_bp = torch.max(last_values, 1)
         pad_zero = autograd.Variable(torch.zeros(batch_size, tag_size)).long()
+        if self.gpu:
+            pad_zero = pad_zero.cuda()
         back_points.append(pad_zero)
         back_points = torch.cat(back_points).view(seq_len, batch_size, tag_size)
 
@@ -122,6 +126,8 @@ class CRF(nn.Module):
         back_points.scatter_(1, last_position, insert_last)
         back_points = back_points.transpose(1, 0).contiguous()
         decode_idx = autograd.Variable(torch.LongTensor(seq_len, batch_size))
+        if self.gpu:
+            decode_idx = decode_idx.cuda()
         decode_idx[-1] = pointer.data
         for idx in range(len(back_points) - 2, -1, -1):
             pointer = torch.gather(back_points[idx], 1, pointer.contiguous().view(batch_size, 1))

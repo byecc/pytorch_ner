@@ -20,6 +20,8 @@ np.random.seed(seed_num)
 def train(data):
     print("Training model...")
     model = SeqModel(data)
+    if data.use_cuda:
+        model.cuda()
     parameters = filter(lambda p: p.requires_grad, model.parameters())
     if data.optimizer == "SGD":
         optimizer = optim.SGD(parameters, lr=data.lr, momentum=data.momentum, weight_decay=data.weight_decay)
@@ -167,6 +169,16 @@ def generate_batch(instance, gpu):
     char_seq_tensor = char_seq_tensor[char_sort_idx]
     _, char_seq_recover = char_sort_idx.sort(0, descending=False)
     _, word_seq_recover = sort_idx.sort(0, descending=False)
+
+    if gpu:
+        word_seq_tensor = word_seq_tensor.cuda()
+        word_seq_length = word_seq_length.cuda()
+        word_seq_recover = word_seq_recover.cuda()
+        char_seq_tensor = char_seq_tensor.cuda()
+        char_seq_length = char_seq_length.cuda()
+        char_seq_recover = char_seq_tensor.cuda()
+        label_seq_tensor = label_seq_tensor.cuda()
+        mask = mask.cuda()
 
     return word_seq_tensor, word_seq_length, word_seq_recover, char_seq_tensor, char_seq_length, char_seq_recover, label_seq_tensor, mask
 
