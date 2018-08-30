@@ -97,6 +97,7 @@ class Data:
         self.iter = None
         self.fine_tune = False
         self.attention = False
+        self.lstm_attention = False
         self.attention_dim = None
         self.average_loss = False
         self.norm_word_emb = False
@@ -212,6 +213,9 @@ class Data:
         item = 'attention'
         if item in self.config:
             self.attention = str2bool(self.config[item])
+        item = 'lstm_attention'
+        if item in self.config:
+            self.lstm_attention = str2bool(self.config[item])
         item = 'attention_dim'
         if item in self.config:
             self.attention_dim = int(self.config[item])

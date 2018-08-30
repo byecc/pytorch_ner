@@ -5,7 +5,7 @@ from pack_embedding import LoadEmbedding
 from torch.nn.utils.rnn import pack_padded_sequence as pack
 from torch.nn.utils.rnn import pad_packed_sequence as pad
 import numpy as np
-
+from ner.attention import Attention
 
 class WordSequence(nn.Module):
     def __init__(self, data):
@@ -72,6 +72,12 @@ class WordSequence(nn.Module):
             self.word_feature = nn.LSTM(data.attention_dim, data.hidden_dim, num_layers=data.lstm_layer,
                                         batch_first=True, bidirectional=data.bilstm)
 
+        if data.lstm_attention:
+            self.att1 = nn.Linear(data.word_embed_dim, data.attention_dim)
+            self.softmax = nn.Softmax(dim=-1)
+            self.att2 = nn.Linear(data.attention_dim, data.attention_dim,bias=False)
+
+
     def random_embedding(self, vocab_size, embedding_dim):
         pretrain_emb = np.empty([vocab_size, embedding_dim])
         scale = np.sqrt(3.0 / embedding_dim)
@@ -109,5 +115,9 @@ class WordSequence(nn.Module):
         word_rep = pack(word_rep, word_seq_length.cpu().numpy(), batch_first=True)
         out, hidden = self.word_feature(word_rep)
         out, _ = pad(out, batch_first=True)
+        if self.args.lstm_attention:
+            out = F.tanh(self.att1(out))
+            # out = self.softmax(out)
+            out = self.att2(out)
         out = self.hidden2tag(self.drop(out))
         return out
