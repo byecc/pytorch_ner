@@ -117,7 +117,7 @@ class WordSequence(nn.Module):
         out, _ = pad(out, batch_first=True)
         if self.args.lstm_attention:
             out = F.tanh(self.att1(out))
-            # out = self.softmax(out)
+            out = self.softmax(out)
             out = self.att2(out)
         out = self.hidden2tag(self.drop(out))
         return out

@@ -41,8 +41,9 @@ def get_entity(label_list):
         if "B-" in current:
             if entity is not None:
                 entity_list.append("[" + entity_index + "]" + entity)
-                entity = None
-                entity_index = None
+                # entity = None
+                # entity_index = None
+                # continue
             entity = current.split("-")[1]
             entity_index = str(idx)
         elif "I-" in current:
