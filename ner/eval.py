@@ -50,7 +50,10 @@ def get_entity(label_list):
             if entity is not None:
                 entity_index += str(idx)
             else:
+                # print('single I start')
                 continue
+                entity = current.split("-")[1]
+                entity_index = str(idx)
         elif "O" in current:
             if entity is not None:
                 entity_list.append("[" + entity_index + "]" + entity)

@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.autograd as autograd
+import torch.nn.functional as F
 
 class Attention(nn.Module):
     def __init__(self, dimensions, attention_type='general'):
@@ -67,10 +68,50 @@ class Attention(nn.Module):
         return output, attention_weights
 
 
-# attention = Attention(50)
-# query = autograd.Variable(torch.randn(5, 20, 50))
-# context = autograd.Variable(torch.randn(5, 20, 50))
-# output, weights = attention(query, context)
-# print(output.size())
-# print(query.size())
-# print(context.size())
+class SelfAttention(nn.Module):
+    def __init__(self,hidden_dim):
+        super().__init__()
+        self.hidden_dim = hidden_dim
+        self.projection = nn.Sequential(
+            nn.Linear(hidden_dim,hidden_dim//2,bias=False),
+            nn.Tanh(),
+            nn.Linear(hidden_dim//2,1,bias=False)
+        )
+        # self.projection = nn.Sequential(
+        #     nn.Linear(hidden_dim, 1),
+        #     nn.Tanh()
+        # )
+
+    def forward(self, encoder_output):
+        # (B, L, H) -> (B , L, 1)
+        energy = self.projection(encoder_output)
+        weights = F.softmax(energy.squeeze(-1), dim=1)
+        # (B, L, H) * (B, L, 1) -> (B, H)
+        outputs = (encoder_output * weights.unsqueeze(-1)).sum(dim=1)
+        return outputs, weights
+
+# attn = SelfAttention(100)
+# x =  torch.autograd.Variable(torch.randn(32,2,100))
+# y = attn(x)
+# pass
+
+def new_parameter(*size):
+    out = torch.nn.Parameter(torch.FloatTensor(*size))
+    torch.nn.init.xavier_normal(out)
+    return out
+
+class AttentionM(nn.Module):
+    def __init__(self, attention_size):
+        super(AttentionM, self).__init__()
+        self.attention = new_parameter(attention_size, 1)
+
+    def forward(self, x_in):
+        # after this, we have (batch, dim1) with a diff weight per each cell
+        attention_score = torch.matmul(x_in, self.attention).squeeze()
+        attention_score = F.softmax(attention_score).view(x_in.size(0), x_in.size(1), 1)
+        scored_x = x_in * attention_score
+
+        # now, sum across dim 1 to get the expected feature vector
+        condensed_x = torch.sum(scored_x, dim=1)
+
+        return condensed_x,attention_score

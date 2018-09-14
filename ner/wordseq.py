@@ -5,7 +5,7 @@ from pack_embedding import LoadEmbedding
 from torch.nn.utils.rnn import pack_padded_sequence as pack
 from torch.nn.utils.rnn import pad_packed_sequence as pad
 import numpy as np
-from ner.attention import Attention
+from ner.attention import *
 
 class WordSequence(nn.Module):
     def __init__(self, data):
@@ -60,6 +60,7 @@ class WordSequence(nn.Module):
 
         self.drop = nn.Dropout(data.dropout)
         self.hidden2tag = nn.Linear(hidden_dim * 2, data.label_alphabet_size)
+        self.att2tag = nn.Linear(1,data.label_alphabet_size)
 
         # attention
         if data.attention:
@@ -73,9 +74,12 @@ class WordSequence(nn.Module):
                                         batch_first=True, bidirectional=data.bilstm)
 
         if data.lstm_attention:
-            self.att1 = nn.Linear(data.word_embed_dim, data.attention_dim)
+            self.att1 = nn.Linear(data.hidden_dim*2, data.attention_dim)
             self.softmax = nn.Softmax(dim=-1)
-            self.att2 = nn.Linear(data.attention_dim, data.attention_dim,bias=False)
+            self.att2 = nn.Linear(data.attention_dim, data.hidden_dim*2,bias=False)
+            self.attention  = SelfAttention(data.hidden_dim*2)
+            # self.attention  = SelfAttention(data.word_embed_dim)
+            # self.attention = AttentionM(data.hidden_dim*2)
 
 
     def random_embedding(self, vocab_size, embedding_dim):
@@ -94,7 +98,8 @@ class WordSequence(nn.Module):
         batch_size = word_inputs.size(0)
         seq_len = word_inputs.size(1)
         word_emb = self.word_embedding(word_inputs)
-        word_rep = self.drop(word_emb)
+        # word_rep = self.drop(word_emb)
+        word_rep = word_emb
         if self.args.use_char:
             size = char_inputs.size(0)
             char_emb = self.char_embedding(char_inputs)
@@ -116,8 +121,30 @@ class WordSequence(nn.Module):
         out, hidden = self.word_feature(word_rep)
         out, _ = pad(out, batch_first=True)
         if self.args.lstm_attention:
-            out = F.tanh(self.att1(out))
-            out = self.softmax(out)
-            out = self.att2(out)
+            # tanh_out = F.tanh(out)
+            # att_vec = self.att1(tanh_out)
+            # att_sm_vec = F.softmax(att_vec)
+            # out = F.mul(out,att_sm_vec)
+
+            out_list,weight_list = [],[]
+            for idx in range(seq_len):
+                # slice_out = out[:,0:idx+1,:]
+                if idx+2 > seq_len:
+                    slice_out = out
+                else:
+                    slice_out = out[:,0:idx+2,:]
+                # slice_out = out
+                slice_out, weights = self.attention(slice_out)
+                # slice_out, weights = SelfAttention(self.args.hidden_dim*2).forward(slice_out)
+                out_list.append(slice_out.unsqueeze(1))
+                weight_list.append(weights)
+            out = torch.cat(out_list,dim=1)
+
+            # pass
+            # out = F.tanh(self.att1(out))
+            # out = self.softmax(out)
+            # out = out*out
+            # out = self.att2(out)
+        # else:
         out = self.hidden2tag(self.drop(out))
         return out
