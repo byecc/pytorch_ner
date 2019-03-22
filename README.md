@@ -1,1 +1,1 @@
-# pytorch_seg_and_pos
+# pytorch_ner
